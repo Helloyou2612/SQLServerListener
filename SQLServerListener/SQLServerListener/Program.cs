@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Data.SqlClient;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using TableDependency.SqlClient;
-using TableDependency.SqlClient.Base;
 using TableDependency.SqlClient.Base.Enums;
 using TableDependency.SqlClient.Base.EventArgs;
 
@@ -12,34 +10,46 @@ namespace SQLServerListener
 {
     internal class Program
     {
-        private static string _con = "Integrated Security=SSPI;Persist Security Info=False;Initial Catalog=CU10;Data Source=.;";
+        private static string _con = "Data Source=.;Initial Catalog=SQLServerListener;User ID=sa;Password=123456;persist security info=True";
+
+        private static SqlTableDependency<Customer> _dependency = new SqlTableDependency<Customer>(_con,
+            schemaName: "dbo",
+            tableName: "Emp",
+            mapper: ModelToTableMapper.CustomerMapper(),
+            includeOldValues: true,
+            notifyOn: DmlTriggerType.All);
 
         private static void Main(string[] args)
         {
-            var mapper = new ModelToTableMapper<Customer>();
-            mapper.AddMapping(c => c.Id, "Id");
-            mapper.AddMapping(c => c.FirstName, "FirstName");
-
-            using (var dep = new SqlTableDependency<Customer>(_con, tableName: "Emp", mapper: mapper, notifyOn: DmlTriggerType.All))
+            try
             {
-                dep.OnChanged += TableDependency_Changed;
-                dep.OnError += TableDependency_OnError;
-                dep.OnStatusChanged += TableDependency_OnStatusChanged;
+                _dependency.OnChanged += TableDependency_Changed;
+                _dependency.OnError += TableDependency_OnError;
+                _dependency.OnStatusChanged += TableDependency_OnStatusChanged;
 
-                dep.TraceLevel = TraceLevel.Verbose;
-                dep.TraceListener = new TextWriterTraceListener(Console.Out); //log console
-                //dep.TraceListener = new TextWriterTraceListener(File.Create("c:\\temp\\output.txt")); //log file
-                dep.Start();
+                _dependency.TraceLevel = TraceLevel.Verbose;
+                _dependency.TraceListener = new TextWriterTraceListener(Console.Out); //log console
+                _dependency.TraceListener = new TextWriterTraceListener(File.Create("LogFiles\\output.txt")); //log file
+                _dependency.Start();
 
+                Console.WriteLine("Waiting for receiving notifications...");
+                Console.WriteLine("Press a key to stop");
                 Console.ReadKey();
 
-                dep.Stop();
+                _dependency.Stop();
+            }
+            finally
+            {
+                _dependency?.Dispose();
             }
         }
 
         private static void TableDependency_OnError(object sender, TableDependency.SqlClient.Base.EventArgs.ErrorEventArgs e)
         {
-            throw e.Error;
+            _dependency.Stop();
+            Console.WriteLine("Stop ....");
+            _dependency.Start();
+            Console.WriteLine("Restart Success....");
         }
 
         private static void TableDependency_Changed(object sender, RecordChangedEventArgs<Customer> e)
@@ -53,13 +63,20 @@ namespace SQLServerListener
                 Console.WriteLine("Name: " + changedEntity.FirstName);
                 Console.WriteLine("\n===================Result==========================\n");
 
-                List<Customer> lst = GetAllStocks();
-                foreach (var item in lst)
+                switch (e.ChangeType)
                 {
-                    Console.WriteLine("----------------------------------------------\n");
-                    Console.WriteLine("Id: " + item.Id);
-                    Console.WriteLine("First Name: " + item.FirstName);
-                    Console.WriteLine("Last Name: " + item.LastName);
+                    case ChangeType.Insert:
+                        Console.WriteLine("{0} : {1} START", MethodBase.GetCurrentMethod().Name, e.ChangeType);
+                        break;
+
+                    case ChangeType.Update:
+                        Console.WriteLine("{0} : {1} START", MethodBase.GetCurrentMethod().Name, e.ChangeType);
+                        ChangeTracker.TraceChangeData<Customer>(changedEntity, e.EntityOldValues);
+                        break;
+
+                    case ChangeType.Delete:
+                        Console.WriteLine("{0} : {1} START", MethodBase.GetCurrentMethod().Name, e.ChangeType);
+                        break;
                 }
 
                 Console.WriteLine("\n Press a key to exit");
@@ -69,33 +86,6 @@ namespace SQLServerListener
         private static void TableDependency_OnStatusChanged(object sender, StatusChangedEventArgs e)
         {
             Console.WriteLine(@"Status: " + e.Status);
-        }
-
-        public static List<Customer> GetAllStocks()
-        {
-            List<Customer> lstCustomer = new List<Customer>();
-            using (var sqlConnection = new SqlConnection(_con))
-            {
-                sqlConnection.Open();
-                using (var sqlCommand = sqlConnection.CreateCommand())
-                {
-                    sqlCommand.CommandText = "SELECT * FROM Emp";
-
-                    using (var sqlDataReader = sqlCommand.ExecuteReader())
-                    {
-                        while (sqlDataReader.Read())
-                        {
-                            var Id = sqlDataReader.GetInt32(sqlDataReader.GetOrdinal("Id"));
-                            var name = sqlDataReader.GetString(sqlDataReader.GetOrdinal("FirstName"));
-                            var Surname = sqlDataReader.GetString(sqlDataReader.GetOrdinal("LastName"));
-
-                            lstCustomer.Add(new Customer { Id = Id, FirstName = name, LastName = Surname });
-                        }
-                    }
-                }
-            }
-
-            return lstCustomer;
         }
     }
 }
