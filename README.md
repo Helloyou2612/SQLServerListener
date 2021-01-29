@@ -4,6 +4,11 @@ Receive Notifications when a Table Record Changes with C#
 Receive Notifications on Record Change with SQLTableDependency
 SqlTableDependency is a C# class used to receive notifications containing the modified record values when the content of a specified database table change.
 
+Step0: Enable broker of database
+```sql
+ALTER DATABASE MyDatabase SET ENABLE_BROKER
+```
+
 Step1: Create a table name emp in your database.
 ```sql
 CREATE TABLE [dbo].[Emp](
