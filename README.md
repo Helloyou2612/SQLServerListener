@@ -8,6 +8,22 @@ Step0: Enable broker of database
 ```sql
 ALTER DATABASE MyDatabase SET ENABLE_BROKER
 ```
+IF the Alter Database takes long time to process, try below statement
+```sql
+USE master;
+GO
+ALTER DATABASE Collateral
+    SET ENABLE_BROKER WITH ROLLBACK IMMEDIATE;
+GO
+USE Collateral;
+GO
+```
+Check if is_broker_enabled = 1 is success
+```sql
+SELECT
+    name, database_id, is_broker_enabled
+FROM sys.databases
+```
 
 Step1: Create a table name emp in your database.
 ```sql
