@@ -6,16 +6,16 @@ SqlTableDependency is a C# class used to receive notifications containing the mo
 
 Step0: Enable broker of database
 ```sql
-ALTER DATABASE MyDatabase SET ENABLE_BROKER
+ALTER DATABASE My_Database_Name SET ENABLE_BROKER
 ```
 IF the Alter Database takes long time to process, try below statement
 ```sql
 USE master;
 GO
-ALTER DATABASE Collateral
+ALTER DATABASE My_Database_Name
     SET ENABLE_BROKER WITH ROLLBACK IMMEDIATE;
 GO
-USE Collateral;
+USE My_Database_Name;
 GO
 ```
 Check if is_broker_enabled = 1 is success
